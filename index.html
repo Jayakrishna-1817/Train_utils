@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Class Mapping Generator — Manual & MinVOC</title>
+<style>
+:root{font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#172033;background:#f3f6fb}
+*{box-sizing:border-box}body{margin:0;padding:28px}header,.app{max-width:1400px;margin:auto}
+header{margin-bottom:22px}h1{margin:0 0 8px;font-size:clamp(25px,3vw,34px)}p{color:#617089;line-height:1.5}
+.app{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.panel{background:white;border:1px solid #e0e7f0;border-radius:16px;padding:22px;min-width:0;box-shadow:0 6px 24px #17203308}
+.panel h2{font-size:19px;margin:0 0 6px}label{display:block;font-size:14px;font-weight:700;margin:17px 0 8px}
+textarea,input,select{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:12px;background:#fff;color:#172033;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+textarea{min-height:280px;resize:vertical}input[type=number]{font-family:inherit;max-width:190px}
+button{border:0;border-radius:9px;padding:11px 15px;font-weight:700;background:#2563eb;color:white;cursor:pointer}
+button:hover{background:#1d4ed8}.secondary{background:#e6ebf2;color:#263348}.secondary:hover{background:#d7e0eb}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px;align-items:center}.muted{font-size:13px;color:#718096}.controls{display:flex;gap:16px;flex-wrap:wrap;align-items:end}
+.output{background:#101827;color:#b8f7d5;border-radius:10px;padding:15px;white-space:pre;overflow:auto;min-height:180px;max-height:420px;font:13px/1.8 ui-monospace,SFMono-Regular,Consolas,monospace}
+.status{margin-top:12px;font-size:13px;color:#176b42;white-space:pre-wrap}.error{color:#b42318}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.stat{padding:12px;background:#f5f7fb;border-radius:10px}.stat strong{display:block;font-size:22px}.stat span{font-size:12px;color:#667085}
+.table-wrap{overflow:auto;max-height:380px;border:1px solid #e4e9f1;border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}th,td{text-align:left;padding:10px;border-bottom:1px solid #edf0f5}th{background:#f7f9fc;position:sticky;top:0}tr:last-child td{border-bottom:0}
+.pill{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}
+details{margin-top:18px}summary{cursor:pointer;font-weight:700}.small{font-size:12px;color:#64748b}
+.tabbar{max-width:1400px;margin:0 auto 20px;display:flex;gap:8px;padding:6px;background:#e7edf5;border-radius:12px}
+.tab-button{flex:1;background:transparent;color:#42516a;padding:13px 16px}
+.tab-button:hover{background:#dbe4ef}
+.tab-button.active{background:#fff;color:#1d4ed8;box-shadow:0 2px 8px #17203312}
+.tab-content{display:none}.tab-content.active{display:block}
+.manual-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.mapping-list{max-height:230px;overflow:auto;border:1px solid #e4e9f1;border-radius:10px;padding:0 12px}
+.mapping-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #edf0f5}
+.mapping-row:last-child{border-bottom:0}.mapping-row code{overflow-wrap:anywhere;font-size:13px}
+@media(max-width:850px){body{padding:14px}.app{grid-template-columns:1fr}.manual-grid{grid-template-columns:1fr}.panel{padding:16px}.stats{grid-template-columns:repeat(3,1fr)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Class Mapping Generator</h1>
+  <p>Choose Manual Separation for direct include/parent mappings, or Using MinVOC to generate mappings from VOC counts and your <code>class_fallback.py</code> rules.</p>
+</header>
+<nav class="tabbar" aria-label="Generator methods">
+  <button class="tab-button active" data-tab="manualTab">1. Manual Separation</button>
+  <button class="tab-button" data-tab="minvocTab">2. Using MinVOC</button>
+</nav>
+
+<section id="manualTab" class="tab-content active">
+  <div class="manual-grid">
+    <section class="panel">
+      <h2>Manual Separation — Include</h2>
+      <p class="muted">Enter classes one per line. Each class maps to itself.</p>
+      <label for="manualIncludeInput">Include class names</label>
+      <textarea id="manualIncludeInput" spellcheck="false" placeholder="ALCAN&#10;AEROSOL&#10;PAPER"></textarea>
+      <div class="actions">
+        <button id="manualIncludeGenerate">Generate</button>
+        <button class="secondary" id="manualIncludeClear">Clear</button>
+        <button id="manualIncludeCopy">Copy Include</button>
+      </div>
+      <label>Include output</label>
+      <pre id="manualIncludeOutput" class="output">Your output will appear here.</pre>
+      <p id="manualIncludeStatus" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel">
+      <h2>Manual Separation — Exclude / Parent Mapping</h2>
+      <p class="muted">Choose a child class and its parent class from the dropdowns, then add the mapping.</p>
+      <label for="manualChildSelect">Child Class</label>
+      <select id="manualChildSelect"></select>
+      <label for="manualParentSelect">Parent Class</label>
+      <select id="manualParentSelect"></select>
+      <div class="actions">
+        <button id="manualAddMapping">+ Add Mapping</button>
+        <button class="secondary" id="manualAddClass">+ Add New Class</button>
+      </div>
+       <label>Added mappings</label>
+      <div id="manualMappingList" class="mapping-list"></div>
+      <div class="actions">
+        <button class="secondary" id="manualClearMappings">Clear Mappings</button>
+        <button id="manualCopyMappings">Copy Mappings</button>
+      </div>
+      <label>Parent mapping output</label>
+      <pre id="manualParentOutput" class="output">Your mappings will appear here.</pre>
+      <p id="manualMappingStatus" class="status" aria-live="polite"></p>
+    </section>
+  </div>
+</section>
+
+<section id="minvocTab" class="tab-content">
+<main class="app">
+<section class="panel">
+  <h2>1. Input CSV / pasted table</h2>
+  <p class="muted">Paste CSV, tab-separated data, or a Markdown table with only two columns: class name and VOC count. The third column, if present, is ignored.</p>
+  <label for="csvInput">Class name and VOC count</label>
+  <textarea id="csvInput" spellcheck="false" placeholder="ALCAN,8027,TRUE&#10;ALFOIL,241,TRUE&#10;PAPER,35011,TRUE"></textarea>
+  <div class="controls">
+    <div>
+      <label for="threshold">MinVOC threshold</label>
+      <input id="threshold" type="number" min="0" step="1" value="500">
+    </div>
+    <div>
+      <label for="fallbackOther">Fallback to OTHER</label>
+      <select id="fallbackOther">
+        <option value="yes" selected>Only if OTHER is available</option>
+        <option value="no">Do not use OTHER</option>
+      </select>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="generate">Generate mappings</button>
+    <button class="secondary" id="loadExample">Load example data</button>
+    <button class="secondary" id="clear">Clear</button>
+  </div>
+  <div id="inputStatus" class="status" aria-live="polite"></div>
+  <details>
+    <summary>Fallback rules loaded from your file</summary>
+    <p class="small">The generator uses the same undirected family search described in your file: it searches connected family classes for the nearest available class, and treats OTHER as a final fallback rather than a family sibling.</p>
+    <div id="fallbackSummary" class="small"></div>
+  </details>
+</section>
+
+<section class="panel">
+  <h2>2. Generated output</h2>
+  <p class="muted">Classes with counts greater than the threshold map to themselves. Classes below or equal to the threshold use the fallback graph to find an eligible class.</p>
+  <div class="stats">
+    <div class="stat"><strong id="statTotal">0</strong><span>Input classes</span></div>
+    <div class="stat"><strong id="statActive">0</strong><span>Available classes</span></div>
+    <div class="stat"><strong id="statFallback">0</strong><span>Fallback mappings</span></div>
+  </div>
+  <label>Python dictionary mappings</label>
+  <pre id="output" class="output">Your output will appear here.</pre>
+  <div class="actions">
+    <button id="copy">Copy output</button>
+    <button class="secondary" id="download">Download .txt</button>
+    <button class="secondary" id="downloadCsv">Download audit CSV</button>
+  </div>
+  <div id="outputStatus" class="status" aria-live="polite"></div>
+  <label>Resolution audit</label>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Class</th><th>VOC</th><th>Threshold result</th><th>Fallback decision</th><th>Maps to</th></tr></thead>
+      <tbody id="auditBody"><tr><td colspan="5" class="muted">Generate mappings to see details.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+</main>
+</section>
+
+<script>
+// Transcribed from the uploaded class_fallback.py. Edges into OTHER are
+// excluded from the family graph; OTHER is considered only as final fallback.
+const FALLBACK = {
+  PETE_COLOR:"PETE",
+  PETE_THERMOFOAM:"PETE",
+  PETE_WATER_CUP_CLEAR:"PETE_THERMOFOAM",
+  PETE:"OTHER",
+  HDPE_COLOR:"HDPE_NATURAL",
+  HDPE_WHITE:"HDPE_COLOR",
+  HDPE_LID:"HDPE_NATURAL",
+  HDPE_BABY_BOTTLE:"HDPE_NATURAL",
+  HDPE_BABY_BOTTLE_NATURAL:"HDPE_NATURAL",
+  HDPE_BABY_BOTTLE_COLOR:"HDPE_COLOR",
+  HDPE_BABY_BOTTLE_WHITE:"HDPE_WHITE",
+  HDPE_NATURAL:"OTHER",
+  CARDBOARD_COLOR:"CARDBOARD_BROWN",
+  TETRAPACK:"CARDBOARD_BROWN",
+  CARDBOARD_BROWN:"OTHER",
+  FOODCAN:"TINCAN",
+  METAL_MISC:"TINCAN",
+  METAL_PAN:"METAL_MISC",
+  STEEL:"METAL_MISC",
+  AEROSOL:"METAL_MISC",
+  ALFOIL:"ALCAN",
+  TINCAN:"OTHER",
+  ALCAN:"OTHER",
+  VAPE:"ELECTRONICS",
+  ELECTRONICS:"OTHER",
+  PBAG_COLOR:"PBAG_CLEAR",
+  PACKAGING_WRAPPER:"PBAG_CLEAR",
+  PBAG_CLEAR:"OTHER",
+  PS6_CONTAINER:"STYROFOAM",
+  STYROFOAM:"OTHER",
+  PAPER_A4:"PAPER",
+  PAPER_BROWN:"PAPER",
+  PAPER_CUP_CONTAINER:"PAPER",
+  PAPER:"OTHER",
+  PP5_BOTTLE:"PP5_CONTAINER",
+  PP5_WATER_CUP:"PP5_CONTAINER",
+  PP5_CONTAINER_CLEAR:"PP5_CONTAINER",
+  PP5_THERMOFORM_CLEAR:"PP5_CONTAINER_CLEAR",
+  PP5_CONTAINER_BLACK:"PP5_CONTAINER",
+  PP5_CONTAINER_PILL:"PP5_CONTAINER",
+  PP5_LID:"PP5_CONTAINER",
+  N7_PLASTIC:"PP5_CONTAINER",
+  PP5_CONTAINER:"OTHER",
+  BLACK:"BLACK_CONVEYOR",
+  BLUE:"BLACK_CONVEYOR",
+  CLEAR:"BLACK_CONVEYOR",
+  GREEN:"BLACK_CONVEYOR",
+  RED:"BLACK_CONVEYOR",
+  WHITE:"BLACK_CONVEYOR",
+  BLACK_CONVEYOR:"OTHER",
+  GLASS:"OTHER",
+  WOOD:"OTHER",
+  UNKNOWN:"OTHER",
+  DIAPER:"OTHER",
+  SCRAPS_CLEAR:"PETE"
+};
+
+const $ = id => document.getElementById(id);
+
+// Tab navigation: Manual Separation is the default first tab.
+document.querySelectorAll(".tab-button").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".tab-button").forEach(b => b.classList.toggle("active", b === button));
+    document.querySelectorAll(".tab-content").forEach(tab => tab.classList.toggle("active", tab.id === button.dataset.tab));
+  });
+});
+
+// Manual mode state is independent from MinVOC mode.
+const MANUAL_CLASSES = [
+"ALCAN","ALFOIL","CARDBOARD_BROWN","CARDBOARD_COLOR","DIAPER","FOODCAN",
+"HDPE_BABY_BOTTLE_COLOR","HDPE_BABY_BOTTLE_NATURAL","HDPE_BABY_BOTTLE_WHITE",
+"HDPE_COLOR","HDPE_LID","HDPE_NATURAL","HDPE_WHITE","N7_PLASTIC",
+"PACKAGING_WRAPPER","PAPER","PAPER_A4","PAPER_BROWN","PAPER_CUP_CONTAINER",
+"PAPER_PLATE","PBAG_CLEAR","PBAG_COLOR","PETE","PETE_COLOR","PETE_GREEN",
+"PETE_THERMOFOAM","PETE_WATER_CUP_CLEAR","PP5_BOTTLE","PP5_CONTAINER",
+"PP5_CONTAINER_BLACK","PP5_CONTAINER_CLEAR","PP5_CONTAINER_PILL","PP5_LID",
+"PP5_THERMOFORM_CLEAR","PP5_WATER_CUP","PS6_CONTAINER","STYROFOAM","TETRAPACK",
+"WOOD","AEROSOL","CONCRETE","GLOVE","METAL_MISC","METAL_PAN","PAPER_BAG",
+"PETE_LIGHT_COLOR","SCRAPS_AL","STEEL","TINCAN","UNKNOWN","WOOD_COLOR","WOOD_PB"
+];
+let manualClasses=[...MANUAL_CLASSES];
+let manualMappings=[];
+
+function manualQuote(value) {
+  return "'" + value.replace(/\\/g,"\\\\").replace(/'/g,"\\'") + "'";
+}
+function manualFormat(items) {
+  return items.map((item,i) =>
+    `${manualQuote(item.child)} : ${manualQuote(item.parent)}${i<items.length-1?",":""}`
+  ).join("\n");
+}
+function manualUniqueLines(text) {
+  return text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+}
+function renderManualInclude() {
+  const names=[...new Set(manualUniqueLines($("manualIncludeInput").value))];
+  $("manualIncludeOutput").textContent=names.map((name,i)=>
+    `${manualQuote(name)} : ${manualQuote(name)}${i<names.length-1?",":""}`
+  ).join("\n");
+  $("manualIncludeStatus").textContent=`${names.length} unique include classes`;
+}
+function fillManualSelect(select,selected) {
+  select.replaceChildren();
+  [...manualClasses].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:"base"})).forEach(name=>{
+    const option=document.createElement("option");option.value=name;option.textContent=name;select.appendChild(option);
+  });
+  const custom=document.createElement("option");custom.value="__new__";custom.textContent="+ Add new class...";select.appendChild(custom);
+  select.value=manualClasses.includes(selected)?selected:(manualClasses[0]||"__new__");
+}
+function refreshManualSelects() {
+  const child=$("manualChildSelect").value,parent=$("manualParentSelect").value;
+  fillManualSelect($("manualChildSelect"),child);
+  fillManualSelect($("manualParentSelect"),parent);
+}
+function manualSelectNewClass(select) {
+  if(select.value!=="__new__")return;
+  const value=prompt("Enter a new class name:");
+  if(!value||!value.trim()){select.value=manualClasses[0]||"";return;}
+  const name=value.trim();if(!manualClasses.includes(name))manualClasses.push(name);
+  refreshManualSelects();select.value=name;
+}
+function renderManualMappings() {
+  const list=$("manualMappingList");list.replaceChildren();
+  manualMappings.forEach((mapping,index)=>{
+    const row=document.createElement("div");row.className="mapping-row";
+    const code=document.createElement("code");
+    code.textContent=`${manualQuote(mapping.child)} : ${manualQuote(mapping.parent)}`;
+    const remove=document.createElement("button");remove.className="secondary";remove.textContent="Remove";
+    remove.addEventListener("click",()=>{manualMappings.splice(index,1);renderManualMappings();});
+    row.append(code,remove);list.appendChild(row);
+  });
+  $("manualParentOutput").textContent=manualFormat(manualMappings)||"# No mappings added";
+  $("manualMappingStatus").textContent=`${manualMappings.length} mappings`;
+}
+function addManualMapping(child,parent) {
+  if(!child||!parent||child==="__new__"||parent==="__new__")return false;
+  if(!manualMappings.some(m=>m.child===child&&m.parent===parent))manualMappings.push({child,parent});
+  return true;
+}
+$("manualIncludeInput").addEventListener("input",renderManualInclude);
+$("manualIncludeGenerate").addEventListener("click",renderManualInclude);
+$("manualIncludeClear").addEventListener("click",()=>{$("manualIncludeInput").value="";renderManualInclude();});
+$("manualIncludeCopy").addEventListener("click",async()=>{
+  const value=$("manualIncludeOutput").textContent;
+  try{await navigator.clipboard.writeText(value);$("manualIncludeStatus").textContent="Include output copied.";}
+  catch{$("manualIncludeStatus").textContent="Clipboard unavailable; select and copy the output manually.";}
+});
+$("manualChildSelect").addEventListener("change",()=>manualSelectNewClass($("manualChildSelect")));
+$("manualParentSelect").addEventListener("change",()=>manualSelectNewClass($("manualParentSelect")));
+$("manualAddClass").addEventListener("click",()=>{
+  const value=prompt("Enter a new class name:");if(!value||!value.trim())return;
+  const name=value.trim();if(!manualClasses.includes(name))manualClasses.push(name);
+  refreshManualSelects();$("manualChildSelect").value=name;
+});
+$("manualAddMapping").addEventListener("click",()=>{
+  const child=$("manualChildSelect").value,parent=$("manualParentSelect").value;
+  if(!addManualMapping(child,parent)){alert("Choose valid child and parent classes.");return;}
+  renderManualMappings();
+});
+
+$("manualClearMappings").addEventListener("click",()=>{manualMappings=[];renderManualMappings();});
+$("manualCopyMappings").addEventListener("click",async()=>{
+  const value=$("manualParentOutput").textContent;
+  if(!manualMappings.length){alert("Add mappings first.");return;}
+  try{await navigator.clipboard.writeText(value);$("manualMappingStatus").textContent="Parent mappings copied.";}
+  catch{$("manualMappingStatus").textContent="Clipboard unavailable; select and copy the output manually.";}
+});
+
+const graph = new Map();
+
+for (const [child, parent] of Object.entries(FALLBACK)) {
+  if (parent === "OTHER") continue;
+  if (!graph.has(child)) graph.set(child, new Set());
+  if (!graph.has(parent)) graph.set(parent, new Set());
+  graph.get(child).add(parent);
+  graph.get(parent).add(child);
+}
+
+$("fallbackSummary").textContent =
+  `${Object.keys(FALLBACK).length} fallback entries; ${graph.size} classes connected in the family graph.`;
+
+const example = `Class,VOC Count
+ALCAN,8027
+ALFOIL,241
+CARDBOARD_BROWN,5886
+CARDBOARD_COLOR,12377
+DIAPER,101
+FOODCAN,1781
+HDPE_BABY_BOTTLE_COLOR,4306
+HDPE_BABY_BOTTLE_NATURAL,9593
+HDPE_BABY_BOTTLE_WHITE,9132
+HDPE_COLOR,8068
+HDPE_LID,14602
+HDPE_NATURAL,63576
+HDPE_WHITE,8482
+N7_PLASTIC,20992
+PACKAGING_WRAPPER,6997
+PAPER,35011
+PAPER_A4,421
+PAPER_BROWN,1074
+PAPER_CUP_CONTAINER,969
+PAPER_PLATE,347
+PBAG_CLEAR,894
+PBAG_COLOR,9631
+PETE,7618
+PETE_COLOR,1514
+PETE_GREEN,297
+PETE_THERMOFOAM,9748
+PETE_WATER_CUP_CLEAR,461
+PP5_BOTTLE,950
+PP5_CONTAINER,27479
+PP5_CONTAINER_BLACK,997
+PP5_CONTAINER_CLEAR,17855
+PP5_CONTAINER_PILL,834
+PP5_LID,42936
+PP5_THERMOFORM_CLEAR,963
+PP5_WATER_CUP,20725
+PS6_CONTAINER,279
+STYROFOAM,10978
+TETRAPACK,1311
+WOOD,129
+AEROSOL,86
+CONCRETE,3
+GLOVE,5
+METAL_MISC,12
+METAL_PAN,1
+PAPER_BAG,10
+PETE_LIGHT_COLOR,1
+SCRAPS_AL,23
+STEEL,24
+TINCAN,31
+UNKNOWN,3
+WOOD_COLOR,41
+WOOD_PB,24,TRUE`;
+
+function splitRow(line) {
+  if (line.includes("|")) {
+    return line.split("|").map(x => x.trim())
+      .filter((x,i,a) => !(x === "" && (i === 0 || i === a.length - 1)));
+  }
+  if (line.includes("\t")) return line.split("\t").map(x => x.trim());
+
+  // CSV parser supporting quoted fields and commas.
+  const cells=[]; let cur="", quoted=false;
+  for(let i=0;i<line.length;i++){
+    const c=line[i];
+    if(c === '"' && line[i+1] === '"' && quoted){cur+='"';i++;}
+    else if(c === '"') quoted=!quoted;
+    else if(c === "," && !quoted){cells.push(cur.trim());cur="";}
+    else cur+=c;
+  }
+  cells.push(cur.trim());
+
+  if(cells.length === 1){
+    // Also accept aligned text such as CLASS  123  TRUE.
+    const m=line.trim().match(/^(\S+)\s+([\d,]+)/);
+    if(m) return [m[1],m[2]];
+  }
+  return cells;
+}
+
+function parseInput(raw) {
+  const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const rows=[];
+  for(const line of lines){
+    if(/^\|?\s*:?-{2,}/.test(line)) continue;
+    const cells=splitRow(line).map(x=>x.replace(/^['"]|['"]$/g,"").trim());
+    if(cells.length<2) continue;
+    const label=cells[0].trim();
+    const countText=cells[1].replace(/,/g,"").trim();
+
+    if(/^(CLASS|LABEL|NAME|VOC|VOC_COUNT|COUNT)$/i.test(label) &&
+       !/^\d+$/.test(countText)) continue;
+    const count=Number(countText);
+    if(!label || !Number.isFinite(count) || count < 0) continue;
+
+    // Only columns 1 and 2 are used. Any third column is intentionally ignored.
+    rows.push({label,count});
+  }
+
+  const seen=new Set(), unique=[];
+  for(const row of rows){
+    if(seen.has(row.label)) continue;
+    seen.add(row.label); unique.push(row);
+  }
+  return {rows:unique, parsedRows:rows.length, lineCount:lines.length};
+}
+
+function nearestAvailable(label, available, useOther) {
+  if(available.has(label)) return {target:label,reason:"Self (available)"};
+  const visited=new Set([label]), queue=[label];
+  while(queue.length){
+    const current=queue.shift();
+    const neighbors=[...(graph.get(current)||[])].sort((a,b)=>a.localeCompare(b));
+    for(const next of neighbors){
+      if(available.has(next)) return {target:next,reason:"Nearest available family class"};
+      if(!visited.has(next)){visited.add(next);queue.push(next);}
+    }
+  }
+  if(useOther && available.has("OTHER")) return {target:"OTHER",reason:"Final fallback: OTHER"};
+  return {target:null,reason:"No available fallback found"};
+}
+
+function pyQuote(s){return "'"+s.replace(/\\/g,"\\\\").replace(/'/g,"\\'")+"'";}
+function mappingOutput(rows){
+  return rows.map((r,i)=>`${pyQuote(r.label)} : ${pyQuote(r.target)}${i<rows.length-1?",":""}`).join("\n");
+}
+let lastAudit=[];
+
+function generate(){
+  const status=$("inputStatus"); status.className="status"; status.textContent="";
+  $("outputStatus").textContent="";
+  const threshold=Number($("threshold").value);
+  if(!Number.isFinite(threshold)||threshold<0){
+    status.className="status error";
+    status.textContent="Enter a valid non-negative MinVOC threshold.";
+    return;
+  }
+  const parsed=parseInput($("csvInput").value);
+  if(!parsed.rows.length){
+    status.className="status error";
+    status.textContent="No valid rows found. Provide at least class name and VOC count.";
+    return;
+  }
+
+  // Only the first two columns matter. Available means count > threshold.
+  // The third column, if present, is ignored.
+  const available=new Set(parsed.rows.filter(r=>r.count>threshold).map(r=>r.label));
+  const useOther=$("fallbackOther").value==="yes";
+
+  lastAudit=parsed.rows.map(row=>{
+    if(row.count>threshold){
+      return {...row,target:row.label,reason:"Count above threshold; self",decision:"SELF"};
+    }
+    const result=nearestAvailable(row.label,available,useOther);
+    return {...row,target:result.target,reason:result.target=== "OTHER"
+      ? "Final fallback: OTHER"
+      : result.reason,decision:result.target ? "FALLBACK" : "UNRESOLVED"};
+  });
+
+  const unresolved=lastAudit.filter(r=>!r.target);
+  const outputRows=lastAudit.filter(r=>r.target).map(r=>({label:r.label,target:r.target}));
+  $("output").textContent=mappingOutput(outputRows)||"# No mappings generated";
+  $("statTotal").textContent=parsed.rows.length;
+  $("statActive").textContent=available.size;
+  $("statFallback").textContent=lastAudit.filter(r=>r.target && r.target!==r.label).length;
+
+  const tbody=$("auditBody");tbody.replaceChildren();
+  for(const row of lastAudit){
+    const tr=document.createElement("tr");
+    const values=[row.label,row.count.toLocaleString("en-US"),row.count>threshold?"ABOVE MINVOC":"AT/BELOW MINVOC",row.reason,row.target||"—"];
+    values.forEach((value,i)=>{
+      const td=document.createElement("td");
+      if(i===2){
+        const badge=document.createElement("span");
+        badge.className="pill "+(row.count>threshold?"ok":"warn");
+        badge.textContent=value;td.appendChild(badge);
+      } else if(i===3){
+        td.textContent=value;
+        if(row.decision==="UNRESOLVED") td.className="error";
+      } else td.textContent=value;
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  }
+  const dup=parsed.parsedRows-parsed.rows.length;
+  status.textContent=`Processed ${parsed.rows.length} unique classes. ${available.size} classes have counts greater than MinVOC.`
+    +(dup?` Ignored ${dup} duplicate class row(s).`:"")
+    +" The third column, if present, was ignored.";
+  if(unresolved.length){
+    $("outputStatus").className="status error";
+    $("outputStatus").textContent=`${unresolved.length} class(es) have no available fallback: ${unresolved.map(r=>r.label).join(", ")}. They are omitted from the generated dictionary; check the audit table.`;
+  }else{
+    $("outputStatus").className="status";
+    $("outputStatus").textContent="All input classes resolved.";
+  }
+}
+
+refreshManualSelects();
+renderManualInclude();
+renderManualMappings();
+
+$("generate").addEventListener("click",generate);
+$("loadExample").addEventListener("click",()=>{$("csvInput").value=example;generate();});
+$("clear").addEventListener("click",()=>{
+  $("csvInput").value="";$("output").textContent="Your output will appear here.";
+  $("inputStatus").textContent="";$("outputStatus").textContent="";
+  $("statTotal").textContent="0";$("statActive").textContent="0";$("statFallback").textContent="0";
+  $("auditBody").innerHTML='<tr><td colspan="5" class="muted">Generate mappings to see details.</td></tr>';
+  lastAudit=[];
+});
+$("copy").addEventListener("click",async()=>{
+  const text=$("output").textContent;
+  if(!text||text.startsWith("Your output"))return;
+  try{await navigator.clipboard.writeText(text);$("outputStatus").className="status";$("outputStatus").textContent="Python mappings copied.";}
+  catch{$("outputStatus").className="status error";$("outputStatus").textContent="Clipboard access unavailable; select and copy the output manually.";}
+});
+$("download").addEventListener("click",()=>{
+  const text=$("output").textContent;if(!text||text.startsWith("Your output"))return;
+  downloadFile(text,"class_mappings.txt","text/plain;charset=utf-8");
+});
+$("downloadCsv").addEventListener("click",()=>{
+  if(!lastAudit.length)return;
+  const csv=[["class","voc_count","threshold_result","decision","mapped_to","reason"],...lastAudit.map(r=>[r.label,r.count,r.count>Number($("threshold").value)?"ABOVE MINVOC":"AT/BELOW MINVOC",r.decision,r.target||"",r.reason])]
+    .map(row=>row.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(",")).join("\r\n");
+  downloadFile(csv,"class_mapping_audit.csv","text/csv;charset=utf-8");
+});
+function downloadFile(text,name,type){
+  const url=URL.createObjectURL(new Blob([text],{type}));
+  const a=document.createElement("a");a.href=url;a.download=name;a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+</script>
+</body>
+</html>
